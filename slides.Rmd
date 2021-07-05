@@ -104,7 +104,7 @@ https://xkcd.com/977/
 
 ### Projection 101
 
-* For small area's, projection is usually no big issue (Earth is nearly flat)
+* For small areas, projection is usually no big issue (Earth is nearly flat)
 * Projections cannot preserve distances; only distances to a single location
 * Projections preserve area **or** shape **or** direction **or** some compromise, **or** ...
 * There are many of them!
@@ -210,7 +210,7 @@ of points
 
 ## Why is this such a big deal? 
 
-Straight lines, after (re)projection, are no longer straight.
+Straight lines, after (re)projection, are usually no longer straight. So, when are they straight?
 
 [GeoJSON IETF standard](https://datatracker.ietf.org/doc/html/rfc7946):
 
@@ -254,7 +254,7 @@ pr = proj_plot(x, st_set_crs(st_sfc(l), 4326))
 title("Projected to Lambert equal area")
 
 plot(x0, graticule = TRUE)
-title('Great circle segment, "straight" on sphere"')
+title('Great circle segment, "straight on sphere"')
 l = st_linestring(rbind(c(-125,-85), c(125,-75)))
 st_sfc(l) |> st_set_crs(4326) |> st_segmentize(1e3) |> st_transform(pr) -> l0
 l1 = st_wrap_dateline(st_transform(l0, 4326))
@@ -266,6 +266,74 @@ title("Great circle segment")
 This example is contrived, but relevant for every line except sections
 of meridians or the equator.
 
+--------
+
+```{r echo=FALSE}
+par(mfrow = c(2, 2), mar = c(0,0,2.5,0))
+x0 = st_geometry(map)[map$continent == m]
+x = st_geometry(map)[map$continent == m] |> 
+	st_make_valid()
+plot(x0, graticule = TRUE)
+# line
+l = st_linestring(rbind(c(-125,-85), c(125,-75))) |>
+  st_segmentize(1)
+plot(l, add = TRUE, col = 'red', lwd = 2)
+pts = st_multipoint(rbind(c(-125,-85), c(125,-75))) |>
+  st_sfc(crs = 4326)
+plot(pts, add = TRUE)
+title("Straight on Plate Carree")
+pr = proj_plot(x, st_set_crs(st_sfc(l), 4326))
+title("Projected to Lambert equal area")
+
+plot(x0, graticule = TRUE)
+title('Great circle segment, "straight on sphere"')
+l = st_linestring(rbind(c(-125,-85), c(125,-75)))
+st_sfc(l) |> st_set_crs(4326) |> st_segmentize(1e3) |> st_transform(pr) -> l0
+l1 = st_wrap_dateline(st_transform(l0, 4326))
+plot(l1, col = 'blue', lwd = 2, add = TRUE)
+pr = proj_plot(x, l0, col = 'blue')
+plot(st_transform(pts, pr), add = TRUE)
+title("Great circle segment")
+```
+
+--------
+
+```{r echo=FALSE}
+par(mfrow = c(2, 2), mar = c(0,0,2.5,0))
+x0 = st_geometry(map)[map$continent == m]
+x = st_geometry(map)[map$continent == m] |> 
+	st_make_valid()
+plot(x0, graticule = TRUE)
+# line
+l = st_linestring(rbind(c(-125,-85), c(125,-75))) |>
+  st_segmentize(1)
+plot(l, add = TRUE, col = 'red', lwd = 2)
+st_linestring(rbind(c(-125,-85), c(125,-75))) |>
+  st_segmentize(12) |>
+  st_cast("MULTIPOINT") |>
+  st_sfc(crs = 4326) -> pts
+plot(pts, add = TRUE)
+title("Straight on Plate Carree")
+pr = proj_plot(x, st_set_crs(st_sfc(l), 4326))
+plot(st_transform(pts, pr), add = TRUE)
+title("Projected to Lambert equal area")
+
+plot(x0, graticule = TRUE)
+title('Great circle segment, "straight on sphere"')
+l = st_linestring(rbind(c(-125,-85), c(125,-75)))
+st_sfc(l) |> st_set_crs(4326) |> st_segmentize(1e3) |> st_transform(pr) -> l0
+st_sfc(l) |> st_set_crs(4326) |> st_segmentize(300e3) |> st_cast("MULTIPOINT") -> pts
+l1 = st_wrap_dateline(st_transform(l0, 4326))
+plot(l1, col = 'blue', lwd = 2, add = TRUE)
+plot(pts, add = TRUE)
+pr = proj_plot(x, l0, col = 'blue')
+plot(st_transform(pts, pr), add = TRUE)
+title("Great circle segment")
+```
+
+
+We can add nodes (`st_segmentise`), or remove them (`st_simplify`).
+
 ## Spherical geometry
 
 For data with ellipsoidal (long/lat) coordinates, `sf` 1.0-0 switched
@@ -274,7 +342,7 @@ to using _spherical_ geometry ($S^2$) rather than Cartesian geometry
 
 As the Earth's shape is closer to a sphere than to a flat plane,
 this is a **good thing**, but surprises are going to show up for
-a while due to doing it wrong for some 50+ years.
+a while due to bad Cartesian habits for some 50+ years.
 
 To get the "old" (pre-`sf` 1.0) behaviour, use 
 
@@ -283,7 +351,7 @@ To get the "old" (pre-`sf` 1.0) behaviour, use
 *  project to to `+proj=eqc`.
 
 More discussion on this in the (upcoming) [Spatial Data Science](https://r-spatial.org/book/)
-book by Roger Bivand and me; also do follow [Dewey Dunnington](https://twitter.com/paleolimbot)
+book by Roger Bivand and me; also do follow [Dewey Dunnington](https://twitter.com/paleolimbot).
 
 ## Handling large spatial datasets with R
 
@@ -293,8 +361,8 @@ book by Roger Bivand and me; also do follow [Dewey Dunnington](https://twitter.c
     * download? (weather: ERA5, climate: CMIP6, earth observation: Landsat/Copernicus)
 * Google Earth Engine (and similar) don't allow you to reproduce analysis, independently
 * [openEO](https://openeo.org/) and [openEO
-Platform](https://openeo.org/platform/) are a larger initiatives for
-allowing reproducible (open source) computing on large, cloud-based
+Platform](https://openeo.org/platform/) are part of a larger initiative for
+allowing reproducible (open source, vendor independent) computing on large, cloud-based
 data archives, using R and other platforms
 
 -----------------
@@ -316,12 +384,20 @@ knitr::include_graphics("roger.png")
 knitr::include_graphics("rgdal.png")
 ```
 
+## R Spatial: an open ecosystem
+
+```{r out.width = '85%', echo=FALSE}
+knitr::include_graphics("sf_deps.png")
+```
+
+
 ## Conclusions
 
 * R Spatial is an open and friendly community of people using R for handling and analysing spatial data
 * It uses and interfaces a lot of software shared with a much larger community (e.g. OSGEO)
-* `rgdal` and `rgeos` will retire Jan 1, 2024; `sf`, `terra`, `stars` provide alternatives
+* `rgdal` and `rgeos` will retire Jan 1, 2024; `sf`, `terra`, `stars`, ... provide alternatives
 * `sf` now uses spherical geometry:
     * straight lines may need noding, 
     * simplifying should be done _after_ projection
+    * automated noding may be needed at some stage
 * analysing large spatial data sets is, and will remain a challenge
