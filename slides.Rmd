@@ -1,0 +1,327 @@
+---
+title: "R Spatial"
+author: "Edzer Pebesma (@edzerpebesma), R Foundation"
+date: "UseR! 2021: Jul 5, 2021, 15:30 UTC"
+output:
+  ioslides_presentation:
+    widescreen: true
+    logo: animation.gif
+    css: pres.css
+    smaller: true
+  slidy_presentation: default
+  beamer_presentation: default
+
+---
+
+<style>
+.forceBreak { -webkit-column-break-after: always; break-after: column; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Overview
+
+* How does R plot maps?
+* What is a straight line, anyway?
+* Large spatial datasets with R
+* Lifecycle of R Spatial packages
+* R Spatial community
+
+## How do we plot maps?
+
+* Unless you are in the business of actually [creating globes](https://www.youtube.com/watch?v=4RWcWSN4HhI),
+
+```{r, out.width = '50%', echo=FALSE}
+knitr::include_graphics("globe_manufacturing.gif")
+```
+
+... _any_ two-dimensional plot of Earth-bound surface data involves _projection_
+
+
+## Data Scientists running into spatial data 
+
+```{r out.width = '45%', echo=FALSE}
+knitr::include_graphics("silge.png")
+```
+
+## So what do you do?
+
+```{r echo=FALSE}
+library(rnaturalearth)
+suppressPackageStartupMessages(library(sf))
+map = ne_countries(returnclass = "sf")
+```
+```{r out.width="90%", echo=TRUE,eval=FALSE}
+plot(map)
+```
+```{r out.width="90%", echo=FALSE,eval=TRUE}
+par(mar = rep(0,4))
+plot(st_geometry(map))
+```
+
+## Where did that come from?
+
+```{r echo=TRUE,eval=FALSE}
+maps::map("world")
+maps::map("usa")
+```
+```{r out.width = '49%', echo=FALSE}
+knitr::include_graphics("m1.png")
+```
+```{r out.width = '49%', echo=FALSE}
+knitr::include_graphics("m2.png")
+```
+```
+?map
+projection: character string that names a map projection to use.  See
+          ‘mapproject’ (in the ‘mapproj’ library).  The default is to
+          use a rectangular projection with the aspect ratio chosen so
+          that longitude and latitude scales are equivalent at the
+          center of the picture.
+```
+
+------------------
+
+
+```{r out.width = '45%', echo=FALSE}
+knitr::include_graphics("xkcd.png")
+```
+
+https://xkcd.com/977/
+
+-------------
+
+
+```{r out.width = '45%', echo=FALSE}
+knitr::include_graphics("xkcd2.png")
+```
+
+https://xkcd.com/977/
+
+-------------
+
+### Projection 101
+
+* For small area's, projection is usually no big issue (Earth is nearly flat)
+* Projections cannot preserve distances; only distances to a single location
+* Projections preserve area **or** shape **or** direction **or** some compromise, **or** ...
+* There are many of them!
+
+> - there is no _need_ for 
+>      * North to be up
+>      * Europe to be in the middle
+> - but a projection of a randomly rotated Earth is often harder to read!
+
+--------
+
+```{r eval=TRUE,echo=FALSE,fig.width=10,fig.height=6.4}
+par(mfrow = c(2, 2), mar = c(0,0,2.5,0))
+map = st_geometry(map)
+tissot = function(x = seq(-160, 160, 20), y = seq(-80, 80, 20), radius = units::set_units(300, km)) {
+    xy = expand.grid(x = x, y = y) 
+    s = st_as_sf(xy, coords = c("x", "y"), crs = 4326) 
+    st_buffer(s, radius)
+} 
+ti = tissot()
+g = st_graticule() %>% st_geometry()
+plot(map, graticule = g) # equidistant cylindrical
+title("Equidistant Cylindrical / Plate Carree\n(sf::plot, sp::plot, ggplot2::geom_sf)")
+# sf_use_s2(FALSE)
+assign(".sf.use_s2", FALSE, envir = sf:::.sf_cache) # hack!
+bb = st_as_sfc(st_bbox(c(xmin = -180,xmax=180,ymin=-71,ymax=85.06), crs = st_crs(map)))
+i = suppressMessages(st_intersection(bb, map[-7]))
+g0 = suppressMessages(st_intersection(g, bb))
+plot(st_transform(i, "EPSG:3857"), 
+	 graticule = st_transform(g0, 3857))
+title("Web Mercator\n(leaflet / mapview)")
+plot(st_transform(map, "+proj=eqearth"), 
+	 graticule = st_transform(g, "+proj=eqearth"))
+title("Equal Earth")
+plot(st_transform(map, "+proj=eck4"), 
+	 graticule = st_transform(g, "+proj=eck4"))
+title("Eckhart-IV (tmap)")
+```
+
+
+--------
+
+```{r eval=TRUE,echo=FALSE,fig.width=10,fig.height=6.4}
+par(mfrow = c(2, 2), mar = c(0,0,2.5,0))
+plot(map, graticule = g) # equidistant cylindrical
+plot(ti, add = TRUE, border = 'red', col = NA)
+title("Equidistant Cylindrical / Plate Carree\n(sf::plot, sp::plot, ggplot2::geom_sf)")
+assign(".sf.use_s2", FALSE, envir = sf:::.sf_cache) # hack!
+bb = st_as_sfc(st_bbox(c(xmin = -180,xmax=180,ymin=-71,ymax=85.06), crs = st_crs(map)))
+i = suppressMessages(st_intersection(bb, map[-7]))
+g0 = suppressMessages(st_intersection(g, bb))
+plot(st_transform(i, "EPSG:3857"), 
+	 graticule = st_transform(g0, 3857))
+plot(st_transform(ti, 3857), add = TRUE, border = 'red', col = NA)
+title("Web Mercator\n(leaflet / mapview)")
+plot(st_transform(map, "+proj=eqearth"), 
+	 graticule = st_transform(g, "+proj=eqearth"))
+plot(st_transform(ti, "+proj=eqearth"), add = TRUE, border = 'red', col = NA)
+title("Equal Earth")
+plot(st_transform(map, "+proj=eck4"), 
+	 graticule = st_transform(g, "+proj=eck4"))
+plot(st_transform(ti, "+proj=eck4"), add = TRUE, border = 'red', col = NA)
+title("Eckhart-IV (tmap)")
+```
+
+
+--------
+
+```{r fig.width=10,fig.height=6.4}
+assign(".sf.use_s2", TRUE, envir = sf:::.sf_cache) # hack!
+map = ne_countries(returnclass = "sf")
+co = unique(map$continent)
+proj_plot = function(x, y, proj="laea") {
+	ll = st_centroid(st_union(x))[[1]] |> as.numeric()
+	laea = paste0("+proj=", proj, " +lat_0=", ll[2], " +lon_0=", ll[1])
+	plot(st_transform(x, laea), graticule = TRUE)
+	if (!missing(y))
+		plot(st_transform(y, laea), add = TRUE, border = 'red')
+}
+par(mfrow = c(2, 3), mar = c(0,0,2.5,0))
+for (m in co[c(5,8)]) {
+	x0 = st_geometry(map)[map$continent == m]
+	x = st_geometry(map)[map$continent == m] |> 
+		st_make_valid()
+	plot(x0, graticule = TRUE)
+	title("Equidistant cylindrical (sf, geom_sf)")
+	proj_plot(x)
+	title("Lambert equal area")
+	proj_plot(x, proj = "ortho")
+	title("Orthographic")
+}
+```
+
+## What is a straight line, anyway?
+
+For simple features, some definitions:
+
+* **feature**: abstraction of real world phenomena, with geometrical properties
+* **simple feature**: feature with all geometric attributes described
+_piecewise by straight line_ or _planar interpolation_ between sets
+of points
+
+
+## Why is this such a big deal? 
+
+Straight lines, after (re)projection, are no longer straight.
+
+[GeoJSON IETF standard](https://datatracker.ietf.org/doc/html/rfc7946):
+
+* A line between two positions is a straight Cartesian line, the
+   shortest line between those two points in the coordinate reference
+   system. [...]
+* The coordinate reference system for all GeoJSON coordinates is a
+   geographic coordinate reference system, using the World Geodetic
+   System 1984 (WGS 84) [WGS84] datum, with longitude and latitude units
+   of decimal degrees.
+
+> - but do GeoJSON users realise that?
+
+--------
+
+```{r echo=FALSE}
+library(rnaturalearth)
+suppressPackageStartupMessages(library(sf))
+map = ne_countries(returnclass = "sf")
+co = unique(map$continent)
+proj_plot = function(x, y, proj="laea", col = 'red') {
+	ll = st_centroid(st_union(x))[[1]] |> as.numeric()
+	laea = paste0("+proj=", proj, " +lat_0=", ll[2], " +lon_0=", ll[1])
+	plot(st_transform(x, laea), graticule = TRUE)
+	if (!missing(y))
+		plot(st_transform(y, laea), add = TRUE, col = col, lwd = 2)
+	laea
+}
+par(mfrow = c(2, 2), mar = c(0,0,2.5,0))
+m = co[5]
+x0 = st_geometry(map)[map$continent == m]
+x = st_geometry(map)[map$continent == m] |> 
+	st_make_valid()
+plot(x0, graticule = TRUE)
+# line
+l = st_linestring(rbind(c(-125,-85), c(125,-75))) |>
+  st_segmentize(1)
+plot(l, add = TRUE, col = 'red', lwd = 2)
+title("Straight on Plate Carree")
+pr = proj_plot(x, st_set_crs(st_sfc(l), 4326))
+title("Projected to Lambert equal area")
+
+plot(x0, graticule = TRUE)
+title('Great circle segment, "straight" on sphere"')
+l = st_linestring(rbind(c(-125,-85), c(125,-75)))
+st_sfc(l) |> st_set_crs(4326) |> st_segmentize(1e3) |> st_transform(pr) -> l0
+l1 = st_wrap_dateline(st_transform(l0, 4326))
+plot(l1, col = 'blue', lwd = 2, add = TRUE)
+pr = proj_plot(x, l0, col = 'blue')
+title("Great circle segment")
+```
+
+This example is contrived, but relevant for every line except sections
+of meridians or the equator.
+
+## Spherical geometry
+
+For data with ellipsoidal (long/lat) coordinates, `sf` 1.0-0 switched
+to using _spherical_ geometry ($S^2$) rather than Cartesian geometry
+($R^2$). Straight lines are now great circle segments on a sphere.
+
+As the Earth's shape is closer to a sphere than to a flat plane,
+this is a **good thing**, but surprises are going to show up for
+a while due to doing it wrong for some 50+ years.
+
+To get the "old" (pre-`sf` 1.0) behaviour, use 
+
+* `sf_use_s2(FALSE)`,
+* `st_set_crs(NA)`, or 
+*  project to to `+proj=eqc`.
+
+More discussion on this in the (upcoming) [Spatial Data Science](https://r-spatial.org/book/)
+book by Roger Bivand and me; also do follow [Dewey Dunnington](https://twitter.com/paleolimbot)
+
+## Handling large spatial datasets with R
+
+* too large to 
+    * hold in memory (raster, terra, stars, sf, ...)
+    * keep in local storage
+    * download? (weather: ERA5, climate: CMIP6, earth observation: Landsat/Copernicus)
+* Google Earth Engine (and similar) don't allow you to reproduce analysis, independently
+* [openEO](https://openeo.org/) and [openEO
+Platform](https://openeo.org/platform/) are a larger initiatives for
+allowing reproducible (open source) computing on large, cloud-based
+data archives, using R and other platforms
+
+-----------------
+
+
+```{r out.width = '100%', echo=FALSE}
+knitr::include_graphics("ogc2.png")
+```
+
+## Lifecycle of R Spatial packages
+
+```{r, out.width = '100%', echo=FALSE}
+knitr::include_graphics("roger.png")
+```
+
+--------
+
+```{r out.width = '45%', echo=FALSE}
+knitr::include_graphics("rgdal.png")
+```
+
+## Conclusions
+
+* R Spatial is an open and friendly community of people using R for handling and analysing spatial data
+* It uses and interfaces a lot of software shared with a much larger community (e.g. OSGEO)
+* `rgdal` and `rgeos` will retire Jan 1, 2024; `sf`, `terra`, `stars` provide alternatives
+* `sf` now uses spherical geometry:
+    * straight lines may need noding, 
+    * simplifying should be done _after_ projection
+* analysing large spatial data sets is, and will remain a challenge
