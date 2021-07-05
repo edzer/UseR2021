@@ -29,6 +29,10 @@ knitr::opts_chunk$set(echo = FALSE)
 * Lifecycle of R Spatial packages
 * R Spatial community
 
+Slides: https://edzer.github.io/UseR2021/
+
+R Markdown at: https://github.com/edzer/UseR2021
+
 ## How do we plot maps?
 
 * Unless you are in the business of actually [creating globes](https://www.youtube.com/watch?v=4RWcWSN4HhI),
@@ -358,7 +362,7 @@ book by Roger Bivand and me; also do follow [Dewey Dunnington](https://twitter.c
 * too large to 
     * hold in memory (raster, terra, stars, sf, ...)
     * keep in local storage
-    * download? (weather: ERA5, climate: CMIP6, earth observation: Landsat/Copernicus)
+    * download (weather: ERA5, climate: CMIP6, earth observation: Landsat/Copernicus)
 * Google Earth Engine (and similar) don't allow you to reproduce analysis, independently
 * [openEO](https://openeo.org/) and [openEO
 Platform](https://openeo.org/platform/) are part of a larger initiative for
@@ -386,18 +390,21 @@ knitr::include_graphics("rgdal.png")
 
 ## R Spatial: an open ecosystem
 
-```{r out.width = '85%', echo=FALSE}
+```{r out.width = '80%', echo=FALSE}
 knitr::include_graphics("sf_deps.png")
 ```
 
 
 ## Conclusions
 
-* R Spatial is an open and friendly community of people using R for handling and analysing spatial data
-* It uses and interfaces a lot of software shared with a much larger community (e.g. OSGEO)
-* `rgdal` and `rgeos` will retire Jan 1, 2024; `sf`, `terra`, `stars`, ... provide alternatives
+* Many data scientists will run some day into challenges with spatial data
+* R Spatial is an open and friendly community of people using the R package ecosystem for handling and analysing spatial data
+* It uses and interfaces a lot of software used by a much larger community (e.g. [OSGEO](https://www.osgeo.org/) Foundation)
 * `sf` now uses spherical geometry:
-    * straight lines may need noding, 
-    * simplifying should be done _after_ projection
+    * straight lines may need noding in the projection where they are (supposed to be) straight,
+    * simplifying, if needed, should be done _after_ projecting
     * automated noding may be needed at some stage
 * analysing large spatial data sets is, and will remain a challenge
+* `rgdal` and `rgeos` will retire Jan 1, 2024:
+    * `sf`, `terra`, `stars`, ... provide alternatives:
+    * UseR!s and developers will have to migrate
